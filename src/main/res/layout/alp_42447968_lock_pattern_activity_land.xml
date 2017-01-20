@@ -14,9 +14,9 @@
    limitations under the License.
 -->
 
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="360dp"
+    android:layout_height="wrap_content"
     android:orientation="vertical">
 
     <TextView
@@ -52,4 +52,4 @@
         android:enabled="false"
         android:text="@string/alp_42447968_cmd_continue" />
 
-</RelativeLayout>
+</LinearLayout>

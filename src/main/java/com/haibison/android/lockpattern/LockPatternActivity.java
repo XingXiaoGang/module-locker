@@ -42,6 +42,7 @@ import com.haibison.android.lockpattern.util.InvalidEncrypterException;
 import com.haibison.android.lockpattern.util.Settings;
 import com.haibison.android.lockpattern.util.Settings.Display;
 import com.haibison.android.lockpattern.util.Settings.Security;
+import com.haibison.android.lockpattern.util.UI;
 import com.haibison.android.lockpattern.widget.LockPatternUtils;
 import com.haibison.android.lockpattern.widget.LockPatternView;
 import com.haibison.android.lockpattern.widget.LockPatternView.Cell;
@@ -486,7 +487,6 @@ public class LockPatternActivity extends Activity {
                 .getPattern() : null;
 
         setContentView(R.layout.alp_42447968_lock_pattern_activity_land);
-//        UI.adjustDialogSizeForLargeScreens(getWindow());
 
         /*
          * MAP CONTROLS
