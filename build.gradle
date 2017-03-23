@@ -20,4 +20,7 @@ android {
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
+    provided 'com.android.support:support-v4:23.0.1'
+    compile project(':module-fingerprint')
+
 }

@@ -35,14 +35,17 @@ import android.view.View;
 import android.view.ViewConfiguration;
 import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.awei.android.lib.fingerprintidentify.FingerprintIdentify;
+import com.awei.android.lib.fingerprintidentify.base.BaseFingerprint;
 import com.haibison.android.lockpattern.util.IEncrypter;
 import com.haibison.android.lockpattern.util.InvalidEncrypterException;
 import com.haibison.android.lockpattern.util.Settings;
 import com.haibison.android.lockpattern.util.Settings.Display;
 import com.haibison.android.lockpattern.util.Settings.Security;
-import com.haibison.android.lockpattern.util.UI;
 import com.haibison.android.lockpattern.widget.LockPatternUtils;
 import com.haibison.android.lockpattern.widget.LockPatternView;
 import com.haibison.android.lockpattern.widget.LockPatternView.Cell;
@@ -92,10 +95,9 @@ import static com.haibison.android.lockpattern.util.Settings.Security.METADATA_E
  * @since v1.0
  */
 @SuppressLint("LongLogTag")
-public class LockPatternActivity extends Activity {
+public class LockPatternActivity extends Activity implements View.OnClickListener, LockPatternView.OnPatternListener {
 
     private static final String CLASSNAME = LockPatternActivity.class.getName();
-
     /**
      * Use this action to create new pattern. You can provide an
      * {@link IEncrypter} with
@@ -111,72 +113,8 @@ public class LockPatternActivity extends Activity {
      * @since v2.4 beta
      */
     public static final String ACTION_CREATE_PATTERN = CLASSNAME + ".create_pattern";
-
-    public static Intent newIntentToCreatePattern(Context context) {
-        Intent result = new Intent(ACTION_CREATE_PATTERN, null, context,
-                LockPatternActivity.class);
-        return result;
-    }// newIntentToCreatePattern()
-
-    public static boolean startToCreatePattern(Object caller, Context context,
-                                               int requestCode) {
-        return callStartActivityForResult(caller,
-                newIntentToCreatePattern(context), requestCode);
-    }// startToCreatePattern()
-
-    public static boolean callStartActivityForResult(Object caller,
-                                                     Intent intent, int requestCode) {
-        try {
-            Method method = caller.getClass().getMethod(
-                    "startActivityForResult", Intent.class, int.class);
-            method.setAccessible(true);
-            method.invoke(caller, intent, requestCode);
-
-            return true;
-        } catch (Exception e) {
-            /*
-             * Just log it. We don't need to go to details here, as it's
-             * responsibility of user to take care of caller.
-             */
-            if (DEBUG)
-                Log.d(CLASSNAME, e.getMessage(), e);
-        }
-
-        return false;
-    }// callStartActivityForResult()
-
-    public static final String ACTION_COMPARE_PATTERN = CLASSNAME
-            + ".compare_pattern";
-
-    public static Intent newIntentToComparePattern(Context context,
-                                                   char[] pattern) {
-        Intent result = new Intent(ACTION_COMPARE_PATTERN, null, context,
-                LockPatternActivity.class);
-        if (pattern != null)
-            result.putExtra(EXTRA_PATTERN, pattern);
-
-        return result;
-    }// newIntentToComparePattern()
-
-    public static boolean startToComparePattern(Object caller, Context context,
-                                                int requestCode, char[] pattern) {
-        return callStartActivityForResult(caller,
-                newIntentToComparePattern(context, pattern), requestCode);
-    }// startToComparePattern()
-
+    public static final String ACTION_COMPARE_PATTERN = CLASSNAME + ".compare_pattern";
     public static final String ACTION_VERIFY_CAPTCHA = CLASSNAME + ".verify_captcha";
-
-    public static Intent newIntentToVerifyCaptcha(Context context) {
-        Intent result = new Intent(ACTION_VERIFY_CAPTCHA, null, context,
-                LockPatternActivity.class);
-        return result;
-    }// newIntentToVerifyCaptcha()
-
-    public static boolean startToVerifyCaptcha(Object caller, Context context,
-                                               int requestCode) {
-        return callStartActivityForResult(caller,
-                newIntentToVerifyCaptcha(context), requestCode);
-    }// startToVerifyCaptcha()
 
     /**
      * If you use {@link #ACTION_COMPARE_PATTERN} and the user fails to "login"
@@ -186,7 +124,6 @@ public class LockPatternActivity extends Activity {
      * @see #EXTRA_RETRY_COUNT
      */
     public static final int RESULT_FAILED = RESULT_FIRST_USER + 1;
-
     /**
      * If you use {@link #ACTION_COMPARE_PATTERN} and the user forgot his/ her
      * pattern and decided to ask for your help with recovering the pattern (
@@ -199,14 +136,12 @@ public class LockPatternActivity extends Activity {
      * @since v2.8 beta
      */
     public static final int RESULT_FORGOT_PATTERN = RESULT_FIRST_USER + 2;
-
     /**
      * For actions {@link #ACTION_COMPARE_PATTERN} and
      * {@link #ACTION_VERIFY_CAPTCHA}, this key holds the number of tries that
      * the user attempted to verify the input pattern.
      */
     public static final String EXTRA_RETRY_COUNT = CLASSNAME + ".retry_count";
-
     /**
      * Sets value of this key to a theme in {@code R.style.Alp_42447968_Theme_*}
      * . Default is the one you set in your {@code AndroidManifest.xml}. Note
@@ -216,7 +151,6 @@ public class LockPatternActivity extends Activity {
      * @since v1.5.3 beta
      */
     public static final String EXTRA_THEME = CLASSNAME + ".theme";
-
     /**
      * Key to hold the pattern. It must be a {@code char[]} array.
      * <p/>
@@ -230,7 +164,6 @@ public class LockPatternActivity extends Activity {
      * @since v2 beta
      */
     public static final String EXTRA_PATTERN = CLASSNAME + ".pattern";
-
     /**
      * You can provide an {@link ResultReceiver} with this key. The activity
      * will notify your receiver the same result code and intent data as you
@@ -238,9 +171,7 @@ public class LockPatternActivity extends Activity {
      *
      * @since v2.4 beta
      */
-    public static final String EXTRA_RESULT_RECEIVER = CLASSNAME
-            + ".result_receiver";
-
+    public static final String EXTRA_RESULT_RECEIVER = CLASSNAME + ".result_receiver";
     /**
      * Put a {@link PendingIntent} into this key. It will be sent before
      * {@link Activity#RESULT_OK} will be returning. If you were calling this
@@ -254,9 +185,7 @@ public class LockPatternActivity extends Activity {
      * will call it inside {@link LockPatternActivity} .</li>
      * </ul>
      */
-    public static final String EXTRA_PENDING_INTENT_OK = CLASSNAME
-            + ".pending_intent_ok";
-
+    public static final String EXTRA_PENDING_INTENT_OK = CLASSNAME + ".pending_intent_ok";
     /**
      * Put a {@link PendingIntent} into this key. It will be sent before
      * {@link Activity#RESULT_CANCELED} will be returning.
@@ -268,9 +197,7 @@ public class LockPatternActivity extends Activity {
      * will call it inside {@link LockPatternActivity} .</li>
      * </ul>
      */
-    public static final String EXTRA_PENDING_INTENT_CANCELLED = CLASSNAME
-            + ".pending_intent_cancelled";
-
+    public static final String EXTRA_PENDING_INTENT_CANCELLED = CLASSNAME + ".pending_intent_cancelled";
     /**
      * You put a {@link PendingIntent} into this extra. The library will show a
      * button <i>"Forgot pattern?"</i> and call your intent later when the user
@@ -292,19 +219,11 @@ public class LockPatternActivity extends Activity {
      * @see #ACTION_COMPARE_PATTERN
      * @since v2.8 beta
      */
-    public static final String EXTRA_PENDING_INTENT_FORGOT_PATTERN = CLASSNAME
-            + ".pending_intent_forgot_pattern";
-
+    public static final String EXTRA_PENDING_INTENT_FORGOT_PATTERN = CLASSNAME + ".pending_intent_forgot_pattern";
     /**
-     * Helper enum for button OK commands. (Because we use only one "OK" button
-     * for different commands).
-     *
-     * @author Hai Bison
-     */
-    private static enum ButtonOkCommand {
-        CONTINUE, FORGOT_PATTERN, DONE
-    }// ButtonOkCommand
-
+     * 使用指纹
+     **/
+    public static final String EXTRA_USE_FINGERPRINT = "extra.use_fingerprint";
     /**
      * Delay time to reload the lock pattern view after a wrong pattern.
      */
@@ -319,14 +238,83 @@ public class LockPatternActivity extends Activity {
     private ButtonOkCommand mBtnOkCmd;
     private Intent mIntentResult;
 
+
+    /**
+     * Helper enum for button OK commands. (Because we use only one "OK" button
+     * for different commands).
+     *
+     * @author Hai Bison
+     */
+    private static enum ButtonOkCommand {
+        CONTINUE, FORGOT_PATTERN, DONE
+    }// ButtonOkCommand
+
     /*
      * CONTROLS
      */
     private TextView mTextInfo;
     private LockPatternView mLockPatternView;
     private Button mBtnConfirm;
-    private View mViewGroupProgressBar;
+    private ImageView mFingerPrintIcon;
     private static final String TAG = "test.LockPatternActivity";
+    private FingerprintIdentify mFingerprintIdentify;
+    private boolean isCanUseFingerPrint;
+
+    public static Intent newIntentToCreatePattern(Context context) {
+        Intent result = new Intent(ACTION_CREATE_PATTERN, null, context,
+                LockPatternActivity.class);
+        return result;
+    }// newIntentToCreatePattern()
+
+    public static boolean startToCreatePattern(Object caller, Context context, int requestCode) {
+        return callStartActivityForResult(caller, newIntentToCreatePattern(context), requestCode);
+    }// startToCreatePattern()
+
+    public static boolean callStartActivityForResult(Object caller, Intent intent, int requestCode) {
+        try {
+            Method method = caller.getClass().getMethod(
+                    "startActivityForResult", Intent.class, int.class);
+            method.setAccessible(true);
+            method.invoke(caller, intent, requestCode);
+
+            return true;
+        } catch (Exception e) {
+            /*
+             * Just log it. We don't need to go to details here, as it's
+             * responsibility of user to take care of caller.
+             */
+            if (DEBUG)
+                Log.d(CLASSNAME, e.getMessage(), e);
+        }
+
+        return false;
+    }// callStartActivityForResult()
+
+    public static Intent newIntentToComparePattern(Context context, char[] pattern, boolean usefingerprint) {
+        Intent result = new Intent(ACTION_COMPARE_PATTERN, null, context,
+                LockPatternActivity.class);
+        if (pattern != null)
+            result.putExtra(EXTRA_PATTERN, pattern);
+        if (usefingerprint)
+            result.putExtra(EXTRA_USE_FINGERPRINT, true);
+
+        return result;
+    }// newIntentToComparePattern()
+
+    public static boolean startToComparePattern(Object caller, Context context, int requestCode, boolean usefingerPrint, char[] pattern) {
+        return callStartActivityForResult(caller, newIntentToComparePattern(context, pattern, usefingerPrint), requestCode);
+    }// startToComparePattern()
+
+    public static Intent newIntentToVerifyCaptcha(Context context) {
+        Intent result = new Intent(ACTION_VERIFY_CAPTCHA, null, context,
+                LockPatternActivity.class);
+        return result;
+    }// newIntentToVerifyCaptcha()
+
+    public static boolean startToVerifyCaptcha(Object caller, Context context, int requestCode) {
+        return callStartActivityForResult(caller,
+                newIntentToVerifyCaptcha(context), requestCode);
+    }// startToVerifyCaptcha()
 
     /**
      * Called when the activity is first created.
@@ -347,6 +335,24 @@ public class LockPatternActivity extends Activity {
         setResult(RESULT_CANCELED, mIntentResult);
 
         initContentView();
+        //fingerprint
+        if (getIntent().hasExtra(EXTRA_USE_FINGERPRINT)) {
+            Log.d(TAG, "onCreate: 使用指纹 ");
+            mFingerprintIdentify = new FingerprintIdentify(this, new BaseFingerprint.FingerprintIdentifyExceptionListener() {
+                @Override
+                public void onCatchException(Throwable exception) {
+                    exception.printStackTrace();
+                    Log.d(TAG, "onCatchException: 指纹异常", exception);
+                }
+            });
+
+            isCanUseFingerPrint = mFingerprintIdentify.isFingerprintEnable() && mFingerprintIdentify.isHardwareEnable() && mFingerprintIdentify.isRegisteredFinger();
+            if (isCanUseFingerPrint) {
+                findViewById(R.id.fingerprint_icon).setVisibility(View.VISIBLE);
+                startFingerIdentify();
+                Log.d(TAG, "onCreate: 开始读取指纹  ");
+            }
+        }
     }// onCreate()
 
     @Override
@@ -402,8 +408,116 @@ public class LockPatternActivity extends Activity {
     }// onTouchEvent()
 
     @Override
+    public void onClick(View view) {
+        if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
+            if (mBtnOkCmd == ButtonOkCommand.CONTINUE) {
+                mBtnOkCmd = ButtonOkCommand.DONE;
+                mLockPatternView.clearPattern();
+                mTextInfo.setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
+                mBtnConfirm.setText(R.string.alp_42447968_cmd_confirm);
+                mBtnConfirm.setEnabled(false);
+            } else {
+                final char[] pattern = getIntent().getCharArrayExtra(EXTRA_PATTERN);
+                finishWithResultOk(pattern);
+            }
+        }// ACTION_CREATE_PATTERN
+        else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
+                /*
+                 * We don't need to verify the extra. First, this button is only
+                 * visible if there is this extra in the intent. Second, it is
+                 * the responsibility of the caller to make sure the extra is
+                 * good.
+                 */
+            PendingIntent pi = null;
+            try {
+                pi = getIntent().getParcelableExtra(
+                        EXTRA_PENDING_INTENT_FORGOT_PATTERN);
+                pi.send();
+            } catch (Throwable t) {
+                Log.e(CLASSNAME, "Error sending pending intent: " + pi, t);
+            }
+            finishWithNegativeResult(RESULT_FORGOT_PATTERN);
+        }// ACTION_COMPARE_PATTERN
+    }// onClick()
+
+    @Override
+    public void onPatternStart() {
+        Log.d(TAG, "onPatternStart: ");
+        mLockPatternView.removeCallbacks(mLockPatternViewReloader);
+        mLockPatternView.setDisplayMode(DisplayMode.Correct);
+
+        if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
+            mTextInfo.setText(R.string.alp_42447968_msg_release_finger_when_done);
+            mBtnConfirm.setEnabled(false);
+            if (mBtnOkCmd == ButtonOkCommand.CONTINUE)
+                getIntent().removeExtra(EXTRA_PATTERN);
+        }// ACTION_CREATE_PATTERN
+        else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
+            mTextInfo
+                    .setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
+        }// ACTION_COMPARE_PATTERN
+        else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
+            mTextInfo
+                    .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
+        }// ACTION_VERIFY_CAPTCHA
+    }// onPatternStart()
+
+    @Override
+    public void onPatternDetected(List<Cell> pattern) {
+        Log.d(TAG, "onPatternDetected: " + getIntent().getAction());
+        if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
+            doCheckAndCreatePattern(pattern);
+        }// ACTION_CREATE_PATTERN
+        else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
+            doComparePattern(pattern);
+        }// ACTION_COMPARE_PATTERN
+        else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
+            if (!DisplayMode.Animate.equals(mLockPatternView
+                    .getDisplayMode()))
+                doComparePattern(pattern);
+        }// ACTION_VERIFY_CAPTCHA
+    }// onPatternDetected()
+
+    @Override
+    public void onPatternCleared() {
+        Log.d(TAG, "onPatternCleared: ");
+        mLockPatternView.removeCallbacks(mLockPatternViewReloader);
+
+        if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
+            mLockPatternView.setDisplayMode(DisplayMode.Correct);
+            mBtnConfirm.setEnabled(false);
+            if (mBtnOkCmd == ButtonOkCommand.CONTINUE) {
+                getIntent().removeExtra(EXTRA_PATTERN);
+                mTextInfo
+                        .setText(R.string.alp_42447968_msg_draw_an_unlock_pattern);
+            } else
+                mTextInfo
+                        .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
+        }// ACTION_CREATE_PATTERN
+        else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
+            mLockPatternView.setDisplayMode(DisplayMode.Correct);
+            mTextInfo
+                    .setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
+        }// ACTION_COMPARE_PATTERN
+        else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
+            mTextInfo
+                    .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
+            List<Cell> pattern = getIntent().getParcelableArrayListExtra(
+                    EXTRA_PATTERN);
+            mLockPatternView.setPattern(DisplayMode.Animate, pattern);
+        }// ACTION_VERIFY_CAPTCHA
+    }// onPatternCleared()
+
+    @Override
+    public void onPatternCellAdded(List<Cell> pattern) {
+        Log.d(TAG, "onPatternCellAdded: ");
+        // TODO Auto-generated method stub
+    }// onPatternCellAdded()
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        cancelFingerIdentify();
     }// onDestroy()
 
     /**
@@ -496,7 +610,7 @@ public class LockPatternActivity extends Activity {
         mLockPatternView = (LockPatternView) findViewById(R.id.alp_42447968_view_lock_pattern);
 
         mBtnConfirm = (Button) findViewById(R.id.alp_42447968_button_confirm);
-
+        mFingerPrintIcon = (ImageView) findViewById(R.id.fingerprint_icon);
         /*
          * LOCK PATTERN VIEW
          */
@@ -534,7 +648,7 @@ public class LockPatternActivity extends Activity {
 
         mLockPatternView.setInStealthMode(mStealthMode
                 && !ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction()));
-        mLockPatternView.setOnPatternListener(mLockPatternViewListener);
+        mLockPatternView.setOnPatternListener(this);
         if (lastPattern != null && lastDisplayMode != null
                 && !ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction()))
             mLockPatternView.setPattern(lastDisplayMode, lastPattern);
@@ -544,7 +658,7 @@ public class LockPatternActivity extends Activity {
          */
 
         if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
-            mBtnConfirm.setOnClickListener(mBtnConfirmOnClickListener);
+            mBtnConfirm.setOnClickListener(this);
 
             if (infoText != null)
                 mTextInfo.setText(infoText);
@@ -575,12 +689,11 @@ public class LockPatternActivity extends Activity {
         }// ACTION_CREATE_PATTERN
         else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
             if (TextUtils.isEmpty(infoText))
-                mTextInfo
-                        .setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
+                mTextInfo.setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
             else
                 mTextInfo.setText(infoText);
             if (getIntent().hasExtra(EXTRA_PENDING_INTENT_FORGOT_PATTERN)) {
-                mBtnConfirm.setOnClickListener(mBtnConfirmOnClickListener);
+                mBtnConfirm.setOnClickListener(this);
                 mBtnConfirm.setText(R.string.alp_42447968_cmd_forgot_pattern);
                 mBtnConfirm.setEnabled(true);
             }
@@ -607,6 +720,35 @@ public class LockPatternActivity extends Activity {
             mLockPatternView.setPattern(DisplayMode.Animate, pattern);
         }// ACTION_VERIFY_CAPTCHA
     }// initContentView()
+
+    public void startFingerIdentify() {
+        mFingerprintIdentify.startIdentify(3, new BaseFingerprint.FingerprintIdentifyListener() {
+            @Override
+            public void onSucceed() {
+//                tag("验证成功");
+                Log.d(TAG, "onSucceed: 验证指纹成功");
+                finishWithResultOk(new char[]{});
+            }
+
+            @Override
+            public void onNotMatch(int availableTimes) {
+//                tag("指纹不匹配，可用次数剩余：" + availableTimes);
+                Toast.makeText(LockPatternActivity.this, "指纹不匹配," + availableTimes, Toast.LENGTH_SHORT).show();
+            }
+
+            @Override
+            public void onFailed() {
+                Log.d(TAG, "onFailed: 验证错误 ");
+            }
+        });
+    }
+
+    public void cancelFingerIdentify() {
+        if (mFingerprintIdentify != null) {
+            Log.d(TAG, "cancelFingerIdentify: 指纹读取停止");
+            mFingerprintIdentify.cancelIdentify();
+        }
+    }
 
     /**
      * Compares {@code pattern} to the given pattern (
@@ -790,138 +932,6 @@ public class LockPatternActivity extends Activity {
     }// finishWithNegativeResult()
 
     /**
-     * Pattern listener for LockPatternView.
-     */
-    private final LockPatternView.OnPatternListener mLockPatternViewListener = new LockPatternView.OnPatternListener() {
-
-        @Override
-        public void onPatternStart() {
-            Log.d(TAG, "onPatternStart: ");
-            mLockPatternView.removeCallbacks(mLockPatternViewReloader);
-            mLockPatternView.setDisplayMode(DisplayMode.Correct);
-
-            if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
-                mTextInfo.setText(R.string.alp_42447968_msg_release_finger_when_done);
-                mBtnConfirm.setEnabled(false);
-                if (mBtnOkCmd == ButtonOkCommand.CONTINUE)
-                    getIntent().removeExtra(EXTRA_PATTERN);
-            }// ACTION_CREATE_PATTERN
-            else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
-                mTextInfo
-                        .setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
-            }// ACTION_COMPARE_PATTERN
-            else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
-                mTextInfo
-                        .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
-            }// ACTION_VERIFY_CAPTCHA
-        }// onPatternStart()
-
-        @Override
-        public void onPatternDetected(List<Cell> pattern) {
-            Log.d(TAG, "onPatternDetected: " + getIntent().getAction());
-            if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
-                doCheckAndCreatePattern(pattern);
-            }// ACTION_CREATE_PATTERN
-            else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
-                doComparePattern(pattern);
-            }// ACTION_COMPARE_PATTERN
-            else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
-                if (!DisplayMode.Animate.equals(mLockPatternView
-                        .getDisplayMode()))
-                    doComparePattern(pattern);
-            }// ACTION_VERIFY_CAPTCHA
-        }// onPatternDetected()
-
-        @Override
-        public void onPatternCleared() {
-            Log.d(TAG, "onPatternCleared: ");
-            mLockPatternView.removeCallbacks(mLockPatternViewReloader);
-
-            if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
-                mLockPatternView.setDisplayMode(DisplayMode.Correct);
-                mBtnConfirm.setEnabled(false);
-                if (mBtnOkCmd == ButtonOkCommand.CONTINUE) {
-                    getIntent().removeExtra(EXTRA_PATTERN);
-                    mTextInfo
-                            .setText(R.string.alp_42447968_msg_draw_an_unlock_pattern);
-                } else
-                    mTextInfo
-                            .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
-            }// ACTION_CREATE_PATTERN
-            else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
-                mLockPatternView.setDisplayMode(DisplayMode.Correct);
-                mTextInfo
-                        .setText(R.string.alp_42447968_msg_draw_pattern_to_unlock);
-            }// ACTION_COMPARE_PATTERN
-            else if (ACTION_VERIFY_CAPTCHA.equals(getIntent().getAction())) {
-                mTextInfo
-                        .setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
-                List<Cell> pattern = getIntent().getParcelableArrayListExtra(
-                        EXTRA_PATTERN);
-                mLockPatternView.setPattern(DisplayMode.Animate, pattern);
-            }// ACTION_VERIFY_CAPTCHA
-        }// onPatternCleared()
-
-        @Override
-        public void onPatternCellAdded(List<Cell> pattern) {
-            Log.d(TAG, "onPatternCellAdded: ");
-            // TODO Auto-generated method stub
-        }// onPatternCellAdded()
-
-    };// mLockPatternViewListener
-
-    /**
-     * Click listener for button Cancel.
-     */
-    private final View.OnClickListener mBtnCancelOnClickListener = new View.OnClickListener() {
-
-        @Override
-        public void onClick(View v) {
-        }// onClick()
-
-    };// mBtnCancelOnClickListener
-
-    /**
-     * Click listener for button Confirm.
-     */
-    private final View.OnClickListener mBtnConfirmOnClickListener = new View.OnClickListener() {
-
-        @Override
-        public void onClick(View v) {
-            if (ACTION_CREATE_PATTERN.equals(getIntent().getAction())) {
-                if (mBtnOkCmd == ButtonOkCommand.CONTINUE) {
-                    mBtnOkCmd = ButtonOkCommand.DONE;
-                    mLockPatternView.clearPattern();
-                    mTextInfo.setText(R.string.alp_42447968_msg_redraw_pattern_to_confirm);
-                    mBtnConfirm.setText(R.string.alp_42447968_cmd_confirm);
-                    mBtnConfirm.setEnabled(false);
-                } else {
-                    final char[] pattern = getIntent().getCharArrayExtra(EXTRA_PATTERN);
-                    finishWithResultOk(pattern);
-                }
-            }// ACTION_CREATE_PATTERN
-            else if (ACTION_COMPARE_PATTERN.equals(getIntent().getAction())) {
-                /*
-                 * We don't need to verify the extra. First, this button is only
-                 * visible if there is this extra in the intent. Second, it is
-                 * the responsibility of the caller to make sure the extra is
-                 * good.
-                 */
-                PendingIntent pi = null;
-                try {
-                    pi = getIntent().getParcelableExtra(
-                            EXTRA_PENDING_INTENT_FORGOT_PATTERN);
-                    pi.send();
-                } catch (Throwable t) {
-                    Log.e(CLASSNAME, "Error sending pending intent: " + pi, t);
-                }
-                finishWithNegativeResult(RESULT_FORGOT_PATTERN);
-            }// ACTION_COMPARE_PATTERN
-        }// onClick()
-
-    };// mBtnConfirmOnClickListener
-
-    /**
      * This reloads the {@link #mLockPatternView} after a wrong pattern.
      */
     private final Runnable mLockPatternViewReloader = new Runnable() {
@@ -929,24 +939,9 @@ public class LockPatternActivity extends Activity {
         @Override
         public void run() {
             mLockPatternView.clearPattern();
-            mLockPatternViewListener.onPatternCleared();
+            onPatternCleared();
         }// run()
 
     };// mLockPatternViewReloader
-
-    /**
-     * Click listener for view group progress bar.
-     */
-    private final View.OnClickListener mViewGroupProgressBarOnClickListener = new View.OnClickListener() {
-
-        @Override
-        public void onClick(View v) {
-            /*
-             * Do nothing. We just don't want the user to interact with controls
-             * behind this view.
-             */
-        }// onClick()
-
-    };// mViewGroupProgressBarOnClickListener
 
 }
